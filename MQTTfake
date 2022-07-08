@@ -1,6 +1,6 @@
 {
   "driver_config": {"broker_address": "130.20.99.141"},
-  "registry_config": "config://fake.csv",
+  "registry_config": "config://MQTTcomma.csv",
   "interval": 5,
   "timezone": "US/Pacific",
   "heart_beat_point": "Heartbeat",
