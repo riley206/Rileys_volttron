@@ -1,5 +1,5 @@
 {
-  "driver_config": {},
+  "driver_config": {"broker_address": "130.20.99.141"},
   "registry_config": "config://fake.csv",
   "interval": 5,
   "timezone": "US/Pacific",

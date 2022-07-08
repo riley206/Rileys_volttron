@@ -239,6 +239,12 @@ class BaseRegister:
         """
         return self.description
 
+    def value(self):
+        pass
+
+    def set_value(self, value):
+        pass
+
 
 class BaseInterface(object, metaclass=abc.ABCMeta):
     """
