@@ -245,6 +245,9 @@ class BaseRegister:
     def set_value(self, value):
         pass
 
+    def reg_type(self, value):
+        pass
+
 
 class BaseInterface(object, metaclass=abc.ABCMeta):
     """
