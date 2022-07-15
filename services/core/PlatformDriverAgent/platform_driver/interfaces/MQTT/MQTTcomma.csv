@@ -1,0 +1,3 @@
+Point Name,Volttron Point Name,Units,Units Details,Writable,Starting Value,Type,Notes
+FirstMessage,FirstMessage,On/Off,On/Off,TRUE,0,string,Point for my first message
+
