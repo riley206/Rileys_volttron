@@ -1,12 +1,18 @@
-import paho.mqtt.client as mqtt
-import logging
-import json
-import csv
-import time
 
-from services.core.PlatformDriverAgent.platform_driver.interfaces import BaseInterface, BasicRevert, BaseRegister, \
-    DriverInterfaceError
-from services.core.PlatformDriverAgent.platform_driver.interfaces.rainforesteagle import NetworkStatus
+
+import random
+import datetime
+import math
+from math import pi
+import time
+import csv
+import _csv
+
+from services.core.PlatformDriverAgent.platform_driver.interfaces import BaseInterface, BaseRegister, BasicRevert
+from io import StringIO
+import logging
+import paho.mqtt.client as mqtt
+import sqlite3
 
 _log = logging.getLogger(__name__)
 type_mapping = {"string": str,
@@ -16,89 +22,106 @@ type_mapping = {"string": str,
                 "bool": bool,
                 "boolean": bool}
 
-client = None
-data = dict()
-
+mqtt_client = None
 
 class FirstMessage(BaseRegister):
-    def __init__(self, read_only, pointName, units, reg_type, register_type, default_value=None, description=''):
-        #     register_type, read_only, pointName, units, description = ''):
+    def __init__(self, read_only, pointName, units, reg_type,
+                 default_value=None, description=''):
         super(FirstMessage, self).__init__("byte", read_only, pointName, units,
+                                          description='')
+        global msg, mqtt_client, m_decode
+
+        self.reg_type= reg_type
+        self.value = m_decode
+        print("is this working?: " + m_decode)
+
+
+class FakeRegister(BaseRegister):
+    def __init__(self, read_only, pointName, units, reg_type,
+                 default_value=None, description=''):
+        #     register_type, read_only, pointName, units, description = ''):
+        super(FakeRegister, self).__init__("byte", read_only, pointName, units,
                                            description='')
-        super().__init__(register_type, read_only, pointName, units, description)
-        self.reg_type = reg_type                                                                                 # what variables go where in
-                                                                                         # relation to the CSV file
+        self.reg_type = reg_type
+
+        if default_value is None:
+            self.value = self.reg_type(random.uniform(0, 100))
+        else:
+            try:
+                self.value = self.reg_type(default_value)
+            except ValueError:
+                self.value = self.reg_type()
 
 
+class EKGregister(BaseRegister):
+    def __init__(self, read_only, pointName, units, reg_type,
+                 default_value=None, description=''):
+        super(EKGregister, self).__init__("byte", read_only, pointName, units,
+                                          description='')
+        self._value = 1;
 
-# Point Name,Volttron Point Name,Units,Units Details,Writable,Starting Value,Type,Notes.
+        math_functions = ('acos', 'acosh', 'asin', 'asinh', 'atan', 'atan2',
+                          'atanh', 'sin', 'sinh', 'sqrt', 'tan', 'tanh')
+        if default_value in math_functions:
+            self.math_func = getattr(math, default_value)
+        else:
+            _log.error('Invalid default_value in EKGregister.')
+            _log.warning('Defaulting to sin(x)')
+            self.math_func = math.sin
 
-#MQTTregister_registers = {'FirstMessage': FirstMessage} # labeled first message
+    @property
+    def value(self):
+        now = datetime.datetime.now()
+        seconds_in_radians = pi * float(now.second) / 30.0
+
+        yval = self.math_func(seconds_in_radians)
+
+        return self._value * yval
+
+    @value.setter
+    def value(self, x):
+        self._value = x
 
 
 class Interface(BasicRevert, BaseInterface):
     def __init__(self, **kwargs):
         super(Interface, self).__init__(**kwargs)
-        self.on_log = None
-        self.on_disconnect = None
-        self.Broker_address = None
 
     def configure(self, config_dict, registry_config_str):
         self.parse_config(registry_config_str)
-        global client
+        global mqtt_client
 
         self.Broker_address = config_dict.get("broker_address")  # From config file (MQTTfake)
         # Connect to MQTT broker.
 
-        client = mqtt.Client(userdata=self)
-        client.on_connect = self.on_connect
-        client.on_disconnect = self.on_disconnect
-        client.on_log = self.on_log
-        client.on_message = self.on_message
+        mqtt_client = mqtt.Client(userdata=self)
+        mqtt_client.on_connect = self.on_connect
+        # client.on_disconnect = self.on_disconnect
+        # client.on_log = self.on_log
+        mqtt_client.on_message = self.on_message
         print("Connecting to broker ", self.Broker_address)
-        client.connect(self.Broker_address)
-        client.loop_start()
-        client.subscribe("devices/fake-campus/fake-building/MQTT")
-        client.publish("devices/fake-campus/fake-building/MQTT", "my first message")
+        mqtt_client.connect(self.Broker_address)
+        mqtt_client.loop_start()
+        mqtt_client.subscribe("devices/fake-campus/fake-building/MQTT")
+        mqtt_client.publish("devices/fake-campus/fake-building/MQTT", "my first message")
 
-        # time.sleep(4)
-        #client.loop_stop()
-        # client.disconnect()
 
-        # Adding 11:31 register stuff
-        # if registry_config_str is None:
-        #     registry_config_str = []
-        # # ADDED 11:15am 7/8
-        # for _ in registry_config_str:
-        #     register = MQTTregister_registers['FirstMessage']
-        #     self.insert_register(register())
 
-        # for name in register_config:
-        #     register = cta2045_registers[name]
-        #     self.insert_register(register())
 
-        # Network Status register (in progress)
-
-        try:
-            self.get_register_by_name('NetworkStatus')
-        except DriverInterfaceError:
-            self.insert_register(NetworkStatus())
 
     def get_point(self, point_name, **kwargs):
         register = self.get_register_by_name(point_name)
         return register.value()
-    print("GotPoint")
 
     def _set_point(self, point_name, value):
         register = self.get_register_by_name(point_name)
         if register.read_only:
-            raise IOError(
-                "trying to write point read only" + point_name)
+            raise RuntimeError(
+                "Trying to write to a point configured read only: " + point_name)
 
-        register.set_value(value)
+        register.value = register.reg_type(value)
         return register.value
 
-    # Fake Driver Example Scrape All
     def _scrape_all(self):
         result = {}
         read_registers = self.get_registers_by_type("byte", True)
@@ -107,10 +130,6 @@ class Interface(BasicRevert, BaseInterface):
             result[register.point_name] = register.value
 
         return result
-
-    # def on_log(self, client, userdata, level, buf):
-    #     print("log: " + buf)
-    #
     @staticmethod
     def _on_mqtt_connect(client, data, flags, rc):
         data._on_connect(client, flags, rc)
@@ -130,19 +149,36 @@ class Interface(BasicRevert, BaseInterface):
 
     # SENDING MESSAGES TO DATA DICTIONARY
     def on_message(self, client, userdata, msg):
-        global config_dict, CSVfile
-        topic =msg.topic
+        global config_dict, CSVfile, mqtt_client
+        _log.info('Received "{0}" on "{1}"'.format(msg.payload, msg.topic))
         m_decode=str(msg.payload.decode("utf-8", "ignore"))
-        data = m_decode
-        print("just printing, what are you doing with this data?", "M_decode: " + m_decode, msg.topic, "Data: " + data)
-        self.vip.pubsub.publish('MQTT', "devices/fake-campus/fake-building/MQTT", message= m_decode)
+        #data = m_decode
+        print("just printing, what are you doing with this data?", "M_decode: " + m_decode, "MSG.topic " + msg.topic)
+        #self.vip.pubsub.publish('pubsub', "devices/fake-campus/fake-building/MQTT", msg.topic, msg.payload)
 
+        self.vip.pubsub.publish("pubsub", msg.topic,
+                            headers={"source": msg.topic},
+                            message=m_decode)
+#goal is to get data into the CSV file
+    # def message_handler(self, client, msg, topic):
+    #     data = config_dict.get("registry_config")
+    #     tnow=time.localtime(time.time())
+    #     m = time.asctime(tnow) + " " +topic+" "+msg
+    #     data["time"] = tnow
+    #     data["topic"] = topic
+    #     data["message"] = msg
+    #     _log.log(data)
 
     def parse_config(self, configDict):
         if configDict is None:
             return
 
+
         for regDef in configDict:
+            # Skip lines that have no address yet.
+            if not regDef['Point Name']:
+                continue
+
             read_only = regDef['Writable'].lower() != 'true'
             point_name = regDef['Volttron Point Name']
             description = regDef.get('Notes', '')
@@ -152,8 +188,8 @@ class Interface(BasicRevert, BaseInterface):
                 default_value = None
             type_name = regDef.get("Type", 'string')
             reg_type = type_mapping.get(type_name, str)
-            print("Hello")
-            register_type = FirstMessage
+
+            register_type = FakeRegister if not point_name.startswith('EKG') else EKGregister
 
             register = register_type(
                 read_only,
@@ -167,6 +203,3 @@ class Interface(BasicRevert, BaseInterface):
                 self.set_default(point_name, register.value)
 
             self.insert_register(register)
-
-
-
