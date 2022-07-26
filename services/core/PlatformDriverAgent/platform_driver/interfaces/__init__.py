@@ -178,7 +178,7 @@ class DriverInterfaceError(Exception):
     pass
 
 
-class BaseRegister:
+class BaseRegister(object):
     """
     Class for containing information about a point on a device.
     Should be extended to support the device protocol to
@@ -238,15 +238,6 @@ class BaseRegister:
         :rtype: str
         """
         return self.description
-
-    def value(self):
-        pass
-
-    def set_value(self, value):
-        pass
-
-    def reg_type(self, value):
-        pass
 
 
 class BaseInterface(object, metaclass=abc.ABCMeta):
@@ -457,7 +448,7 @@ class BaseInterface(object, metaclass=abc.ABCMeta):
         return results
 
 
-class RevertTracker:
+class RevertTracker(object):
     """
     A helper class for tracking the state of writable points on a device.
     """

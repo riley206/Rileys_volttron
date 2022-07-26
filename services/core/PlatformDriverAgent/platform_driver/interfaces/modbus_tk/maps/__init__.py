@@ -36,8 +36,8 @@
 # under Contract DE-AC05-76RL01830
 # }}}
 
-from platform_driver.interfaces.modbus_tk.client import Field, Client
-from platform_driver.interfaces.modbus_tk import helpers
+from services.core.PlatformDriverAgent.platform_driver.interfaces.modbus_tk.client import Field, Client
+from services.core.PlatformDriverAgent.platform_driver.interfaces.modbus_tk import helpers
 from collections import Mapping
 
 import csv

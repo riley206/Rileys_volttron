@@ -445,7 +445,7 @@ class PlatformDriverAgent(Agent):
         :param kwargs: additional arguments for the device
         :type kwargs: arguments pointer
         """
-        return self.instances[path].get_point(point_name)
+        return self.instances[path].get_point(point_name, **kwargs)
 
     @RPC.export
     def set_point(self, path, point_name, value, **kwargs):

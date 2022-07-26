@@ -1,10 +1,3 @@
 Volttron Point Name,Register Name
 LightSensor,LightSensor
-unsigned int,unsigned_int
-unsigned long,unsigned_long
-sample short,sample_short
-sample int,sample_int
-sample float,sample_float
-sample long,sample_long
-sample bool,sample_bool
-sample str,sample_strl
+
